@@ -1,0 +1,15 @@
+[remap]
+
+importer="hellsyncer.midi"
+type="Resource"
+uid="uid://dbqauygpe0qov"
+path="res://.godot/imported/wagtail3.1.mid-22d0ba4b74338067763097f76dc675d4.tres"
+
+[deps]
+
+source_file="res://addons/HellSyncer/ExampleMusic/wagtail3.1.mid"
+dest_files=["res://.godot/imported/wagtail3.1.mid-22d0ba4b74338067763097f76dc675d4.tres"]
+
+[params]
+
+trackRanges=PackedVector2Array(6, 6, 12, 12, 3, 3)
