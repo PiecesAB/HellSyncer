@@ -14,4 +14,8 @@ If a matching MIDI file of the music is not available, you can generate a simple
 3. Enable the plugin in Godot's Project Settings.
 4. That should be all.
 
+## Limitations
+* Only Format 1 MIDIs are supported. This means it assumes Track 0 is the control which contains tempo, time signature, and text info, with any further track being purely instrument-related.
+* Only tempos specified in microseconds per quarter note are supported for now. Sorry SMPTE users.
+
 More information will be found [on the wiki.](https://piecesab.github.io/hellsyncer)
