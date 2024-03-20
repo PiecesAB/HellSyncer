@@ -11,6 +11,7 @@ If a matching MIDI file of the music is not available, you can generate a simple
 
 1. Setup a Godot project that can load the [Blastula framework](https://github.com/PiecesAB/Blastula), following the instructions there.
 2. git clone or copy this repository folder into the addons folder of the project. Ensure the capitalization is correct: "HellSyncer"
-3. That should be all.
+3. Enable the plugin in Godot's Project Settings.
+4. That should be all.
 
 More information will be found [on the wiki.](https://piecesab.github.io/hellsyncer)
