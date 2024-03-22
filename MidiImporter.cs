@@ -2,8 +2,20 @@ using Godot;
 using Godot.Collections;
 using System;
 
-namespace HellSyncer
+namespace HellSyncer.Midi
 {
+    /// <summary>
+    /// Editor plugin that can import .mid/.midi files.
+    /// </summary>
+    /// <remarks>
+    /// Be sure to check the Import menu!!! By default, to save on storage size, we only import the first track of the MIDI,
+    /// which we number as "Track 0", and in Format 1 MIDIs, this contains only the tempo, time signature, and other orchestration information.
+    /// Track 0 is always imported. To select more tracks to import, you must add vectors to Track Ranges in the Import menu.
+    /// Each vector (X, Y) represents an interval of track numbers X to Y, including X and Y.<br /><br />
+    /// To view the tracks of a MIDI file and get an idea of what each track number contains,
+    /// you will need an external editor. Be aware that HellSyncer considers the first track "Track 0",
+    /// because it's possible the external MIDI editor considers the first track "Track 1".
+    /// </remarks>
     public partial class MidiImporter : EditorImportPlugin
     {
         public override float _GetPriority() { return 2f; }

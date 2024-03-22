@@ -7,22 +7,39 @@ using System.Collections.Generic;
 
 namespace HellSyncer
 {
+    /// <summary>
+    /// An AudioStreamPlayer that follows a MIDI, which plays deterministically.
+    /// </summary>
     [GlobalClass]
     public partial class AudioStreamSynced : AudioStreamPlayer
     {
+        /// <summary>
+        /// If this isn't the zero vector, (X, Y) represents the (start, end) of the looping region of this music track.
+        /// So once the music passes the loop end, it will seek (Y - X) seconds backward.
+        /// MIDI events are looped appropriately to match.
+        /// </summary>
         [Export] public Vector2 mainLoop = Vector2.Zero;
+        /// <summary>
+        /// The MIDI file which this audio player is tied to. 
+        /// If null, generatedBpm and generatedTimeSignature will be used to create a simple MIDI file for the beat.
+        /// </summary>
         [ExportGroup("MIDI")]
         [Export] public ParsedMidi midi;
+        /// <summary>
+        /// Used when midi == null. Quarter notes per minute.
+        /// </summary>
         [ExportGroup("Beat MIDI Generator")]
-        // "BPM" is actually quarter notes per minute.
         [Export] public float generatedBpm = 120f;
+        /// <summary>
+        /// Used when midi == null. (X, Y) is (numerator, denominator) of the time signature.
+        /// </summary>
         [Export] public Vector2I generatedTimeSignature = new Vector2I(4, 4);
 
         /// <summary>
         /// If the audible music gets this far from the MIDI (in seconds), then we will force the music to lag or skip.
         /// The reason this happens is because of unpredictable lag in the game,
         /// but the MIDI needs to run deterministically (for replays).
-        /// It's not pretty, but we can have our cake and eat it too.
+        /// It's not pretty, but it keeps the sync.
         /// </summary>
         public const float TOLERANCE = 0.03f;
         /// <summary>
@@ -73,7 +90,7 @@ namespace HellSyncer
         private KeySignatureEvent currentKeySignature = new KeySignatureEvent(0, 0, false);
 
         /// <summary>
-        /// There can only be one... for now.
+        /// There can currently be only one AudioStreamSynced at a time. This is the one.
         /// </summary>
         public static AudioStreamSynced main;
 
@@ -91,6 +108,9 @@ namespace HellSyncer
             return 60f / currentTempo;
         }
 
+        /// <summary>
+        /// Converts MIDI tick count to track time in seconds.
+        /// </summary>
         public float TickToTime(ulong tick)
         {
             // 1. Find which TempoRegion contains tick
@@ -118,6 +138,12 @@ namespace HellSyncer
             return Mathf.Lerp(currentStartTime, currentEndTime, progress);
         }
 
+        /// <summary>
+        /// Converts track time in seconds to MIDI tick count.
+        /// </summary>
+        /// <remarks>
+        /// Important to seek somewhere in a MIDI using only a number of seconds.
+        /// </remarks>
         public ulong TimeToTick(float time)
         {
             // 1. Find which TempoRegion contains time
@@ -313,6 +339,7 @@ namespace HellSyncer
             return (currentMeasure, currentBeat);
         }
 
+        /// <returns>Quarter notes per minute.</returns>
         public float GetTempo()
         {
             return currentTempo;
@@ -372,6 +399,9 @@ namespace HellSyncer
             ProcessPriority = PROCESS_PRIORITY;
         }
 
+        /// <summary>
+        /// Start from the beginning and play the audio in sync with the MIDI.
+        /// </summary>
         public void PlaySynced() {
             startFrame = FrameCounter.stageFrame;
             MidiSeek(0);

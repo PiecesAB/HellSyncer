@@ -1,7 +1,7 @@
 #if TOOLS
 using Godot;
 using System;
-using HellSyncer;
+using HellSyncer.Midi;
 
 [Tool]
 public partial class HellSyncerPlugin : EditorPlugin

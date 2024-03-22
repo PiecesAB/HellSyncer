@@ -9,6 +9,9 @@ namespace HellSyncer
     /// <summary>
     /// Emits a signal for text events embedded in the MIDI.
     /// </summary>
+    /// <remarks>
+    /// Naturally, AudioStreamSynced.main must exist and be currently playing for this to emit any signals.
+    /// </remarks>
     [GlobalClass]
     [Icon(Persistent.NODE_ICON_PATH + "/textbook.png")]
     public partial class MidiTextReader : Node

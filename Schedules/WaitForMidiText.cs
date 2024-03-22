@@ -7,12 +7,15 @@ using System.Collections.Generic;
 namespace Blastula.Schedules
 {
     /// <summary>
-    /// Waits for a note to be played.
+    /// Waits for a MIDI text event to occur, as notified by a MidiTextReader.
     /// </summary>
     [GlobalClass]
     [Icon(HellSyncer.Persistent.NODE_ICON_PATH + "/trebleClock.png")]
     public partial class WaitForMidiText : BaseSchedule
     {
+        /// <summary>
+        /// Respond to when this MidiTextReader encounters a matching text event.
+        /// </summary>
         [Export] public MidiTextReader textReader;
         /// <summary>
         /// If true, text events will build up while we're waiting elsewhere.
@@ -20,8 +23,7 @@ namespace Blastula.Schedules
         /// </summary>
         [Export] public bool buildup = true;
         /// <summary>
-        /// The note's MIDI tone, which is an integer from 0-127, will be set locally in this variable name.
-        /// Middle C (C4) is 60, and each integer corresponds to one semitone.
+        /// If not empty, the text will be set locally in this variable name.
         /// </summary>
         [Export] public string textVarName = "";
 
@@ -47,6 +49,9 @@ namespace Blastula.Schedules
             if (!buildup) { receptive = false; }
         }
 
+        /// <summary>
+        /// Recieves text signal from MidiTextReader.
+        /// </summary>
         public void OnText(string text)
         {
             if (!receptive) { return; }

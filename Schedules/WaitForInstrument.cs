@@ -13,22 +13,31 @@ namespace Blastula.Schedules
     [Icon(HellSyncer.Persistent.NODE_ICON_PATH + "/trebleClock.png")]
     public partial class WaitForInstrument : BaseSchedule
     {
+        /// <summary>
+        /// Respond to when this Instrument detects a note.
+        /// </summary>
         [Export] public Instrument instrument;
         /// <summary>
         /// If true, notes will build up while we're waiting elsewhere.
         /// This causes no wait to occur when new notes are available.
-        /// Important for polyphony when this is the only wait in the schedule loop.
         /// </summary>
+        /// <remarks>
+        /// Allows for proper polyphony when this is the only wait in the schedule loop.
+        /// </remarks>
         [Export] public bool buildup = true;
         /// <summary>
         /// The note's MIDI tone, which is an integer from 0-127, will be set locally in this variable name.
-        /// Middle C (C4) is 60, and each integer corresponds to one semitone.
+        /// Each integer corresponds to one semitone.
         /// </summary>
+        /// <example>Middle C = C4 = MIDI tone 60</example>
+        /// <example>One semitone above middle C = C#4 = MIDI tone 61</example>
+        /// <example>Lowest A on the standard piano = A0 = MIDI tone 21</example>
         [Export] public string toneVarName = "";
         /// <summary>
         /// The note's MIDI velocity, which is an integer from 0-127, will be set locally in this variable name.
-        /// 1 is as quiet as possible, and 127 is as loud as possible.
         /// </summary>
+        /// <example>1 is as quiet as possible while still playing anything.</example>
+        /// <example>127 is as loud as possible.</example>
         [Export] public string velocityVarName = "";
         /// <summary>
         /// The duration of the note in seconds will be set locally in this variable name.
@@ -73,6 +82,9 @@ namespace Blastula.Schedules
             if (!buildup) { receptive = false; }
         }
 
+        /// <summary>
+        /// Recieves the signal from the Instrument.
+        /// </summary>
         public void OnNote(int midiTone, int velocity, float duration)
         {
             if (!receptive) { return; }

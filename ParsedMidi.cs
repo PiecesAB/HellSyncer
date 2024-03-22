@@ -5,8 +5,11 @@ using System;
 using System.Text;
 using HellSyncer.Midi;
 
-namespace HellSyncer
+namespace HellSyncer.Midi
 {
+    /// <summary>
+    /// Resource which contains Godot-friendly MIDI data.
+    /// </summary>
     public partial class ParsedMidi : Resource
     {
         [Export()]
@@ -337,6 +340,14 @@ namespace HellSyncer
             return false;
         }
 
+        /// <summary>
+        /// Creates a ParsedMidi from a .mid/.midi file.
+        /// </summary>
+        /// <param name="raw">The file as a byte array.</param>
+        /// <param name="trackRanges">
+        /// Whitelist of track numbers to import. Each vector (X, Y) is a range of track numbers X to Y, including X and Y.
+        /// Track 0 is always imported regardless of this list.
+        /// </param>
         public void ParseRaw(byte[] raw, Vector2[] trackRanges)
         {
             this.raw = raw;
@@ -352,6 +363,11 @@ namespace HellSyncer
             }
         }
 
+        /// <summary>
+        /// Creates a simple ParsedMidi using a tempo and time signature.
+        /// </summary>
+        /// <param name="bpm">Quarter notes per minute.</param>
+        /// <param name="timeSignature">(X, Y) is the (numerator, denominator).</param>
         public void GenerateForBeat(float bpm, Vector2I timeSignature)
         {
             // only a control track.
