@@ -1,0 +1,15 @@
+[remap]
+
+importer="hellsyncer.midi"
+type="Resource"
+uid="uid://cw5q5or2lixlb"
+path="res://.godot/imported/inclement.mid-3972566b328a99793a4e0adc4a54b4bd.tres"
+
+[deps]
+
+source_file="res://addons/HellSyncer/ExampleMusic/inclement.mid"
+dest_files=["res://.godot/imported/inclement.mid-3972566b328a99793a4e0adc4a54b4bd.tres"]
+
+[params]
+
+trackRanges=PackedVector2Array()

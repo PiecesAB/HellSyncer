@@ -40,7 +40,7 @@ namespace HellSyncer
         /// </summary>
         [Export] public int minimumVelocity = 0;
 
-        public const int PROCESS_PRIORITY = AudioStreamSynced.PROCESS_PRIORITY + 1;
+        public const int PROCESS_PRIORITY = SyncedMusicManager.PROCESS_PRIORITY + 1;
 
         [Signal] public delegate void OnNoteEventHandler(int midiTone, int velocity, float duration);
 
@@ -65,13 +65,13 @@ namespace HellSyncer
         public override void _Ready()
         {
             base._Ready();
-            AudioStreamSynced.AddInstrumentListener(this);
+            SyncedMusicManager.AddInstrumentListener(this);
         }
 
         public override void _ExitTree()
         {
             base._ExitTree();
-            AudioStreamSynced.RemoveInstrumentListener(this);
+            SyncedMusicManager.RemoveInstrumentListener(this);
         }
     }
 }

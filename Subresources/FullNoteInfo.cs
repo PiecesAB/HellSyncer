@@ -33,12 +33,12 @@ namespace HellSyncer.Midi
         /// </summary>
         public float GetDuration()
         {
-            if (AudioStreamSynced.main == null) { return 0f; }
-            if (AudioStreamSynced.main.midi == null) { return 0f; }
+            if (SyncedMusicManager.mainSynced == null) { return 0f; }
+            if (SyncedMusicManager.midi == null) { return 0f; }
             // Quarter notes per minute
-            float currentTempo = AudioStreamSynced.main.GetTempo();
+            float currentTempo = SyncedMusicManager.mainSynced.GetTempo();
             float secondsInQuarterNote = 60f / currentTempo;
-            float quarterDurationsInNote = durationInTicks / (float)AudioStreamSynced.main.midi.ticksPerQN;
+            float quarterDurationsInNote = durationInTicks / (float)SyncedMusicManager.midi.ticksPerQN;
             return secondsInQuarterNote * quarterDurationsInNote;
         }
     }

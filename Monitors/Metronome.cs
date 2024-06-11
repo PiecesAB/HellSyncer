@@ -40,7 +40,7 @@ namespace HellSyncer
         /// </summary>
         [Export] public string debugBeatSound = "";
 
-        public const int PROCESS_PRIORITY = AudioStreamSynced.PROCESS_PRIORITY + 1;
+        public const int PROCESS_PRIORITY = SyncedMusicManager.PROCESS_PRIORITY + 1;
 
         private ulong lastMeasure = ulong.MaxValue;
         private float lastBeat = -1f;
@@ -56,13 +56,14 @@ namespace HellSyncer
 
         public override void _Process(double delta)
         {
-            if (AudioStreamSynced.main == null) { return; }
+            if (SyncedMusicManager.main == null) { return; }
             if (Session.main.paused || Blastula.Debug.GameFlow.frozen) { return; }
-            (ulong currMeasure, float currBeat) = AudioStreamSynced.main.GetBeatAndMeasure();
+            (ulong currMeasure, float currBeat) = SyncedMusicManager.mainSynced.GetBeatAndMeasure();
             if (currMeasure != lastMeasure)
             {
                 EmitSignal(SignalName.OnMeasure, currMeasure);
                 EmitSignal(SignalName.OnInterval, currMeasure, 0);
+                GD.Print(currMeasure + " " + currBeat);
                 if (debugMeasureSound != null && debugMeasureSound != "")
                 {
                     CommonSFXManager.PlayByName(debugMeasureSound, 1, 1, default, true);
@@ -72,6 +73,7 @@ namespace HellSyncer
             else if (currBeat >= targetBeat)
             {
                 EmitSignal(SignalName.OnInterval, currMeasure, targetBeat);
+                GD.Print(currMeasure + " " + currBeat);
                 if (debugBeatSound != null && debugBeatSound != "")
                 {
                     CommonSFXManager.PlayByName(debugBeatSound, 1, 1, default, true);

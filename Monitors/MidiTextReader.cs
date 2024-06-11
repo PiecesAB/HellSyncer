@@ -25,7 +25,7 @@ namespace HellSyncer
         /// </summary>
         [Export] public string magicPhrase = "";
 
-        public const int PROCESS_PRIORITY = AudioStreamSynced.PROCESS_PRIORITY + 1;
+        public const int PROCESS_PRIORITY = SyncedMusicManager.PROCESS_PRIORITY + 1;
 
         [Signal] public delegate void OnTextEventHandler(string text);
 
@@ -46,13 +46,13 @@ namespace HellSyncer
         public override void _Ready()
         {
             base._Ready();
-            AudioStreamSynced.AddTextListener(this);
+            SyncedMusicManager.AddTextListener(this);
         }
 
         public override void _ExitTree()
         {
             base._ExitTree();
-            AudioStreamSynced.RemoveTextListener(this);
+            SyncedMusicManager.RemoveTextListener(this);
         }
     }
 }
