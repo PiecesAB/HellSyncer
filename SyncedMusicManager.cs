@@ -339,9 +339,10 @@ namespace HellSyncer
             currentMeasure = startMeasureOfMeterRegion + (ulong)Mathf.Floor(b / currentTimeSignature.X);
         }
 
-        public (ulong measure, float beat) GetBeatAndMeasure()
+        public (ulong measure, float beat) GetBeatAndMeasure(bool forceQuarterNoteBeat = false)
         {
-            return (currentMeasure, currentBeat);
+            if (forceQuarterNoteBeat) return (currentMeasure, currentBeat * (4f / currentTimeSignature.Y));
+            else return (currentMeasure, currentBeat);
         }
 
         /// <returns>Quarter notes per minute.</returns>

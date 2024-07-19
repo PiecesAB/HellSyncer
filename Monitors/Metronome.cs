@@ -8,7 +8,7 @@ namespace HellSyncer
     /// <summary>
     /// Monitor to filter and emit signals based on the MIDI's rhythm.
     /// This emits two kinds of signals: one for when the measure begins,
-    /// and one for when an "interval" in that measure begins, which has the duration of a customizable number of quarter notes.
+    /// and one for when an "interval" in that measure begins, which has the duration of a customizable number of beats.
     /// </summary>
     /// <remarks>
     /// Naturally, AudioStreamSynced.main must exist and be currently playing for this to emit any signals.
@@ -18,7 +18,8 @@ namespace HellSyncer
     public partial class Metronome : Node
     {
         /// <summary>
-        /// The length of an interval, which is a number of quarter notes.
+        /// The length of an interval, which is a number of beats (denominator of time signature).
+        /// Usually the denominator is a quarter note, so the examples assume the beat is one quarter note.
         /// </summary>
         /// <example>0.25: an interval is one sixteenth note long.</example>
         /// <example>2: an interval is one half note long.</example>
@@ -29,7 +30,11 @@ namespace HellSyncer
         /// When this happens, only one OnInterval signal is sent per frame, and the metronome will lag behind.
         /// So avoid extremely small intervals if you can.
         /// </remarks>
-        [Export] public float intervalQuarterNotes = 1f;
+        [Export] public float intervalBeatCount = 1f;
+        /// <summary>
+        /// If true, the beat will be forced as a quarter note, even when the time signature disagrees.
+        /// </summary>
+        [Export] public bool forceQuarterNoteBeat = false;
         /// <summary>
         /// Sound ID to play when a measure begins. Useful for testing a rhythm.
         /// </summary>
@@ -58,7 +63,7 @@ namespace HellSyncer
         {
             if (SyncedMusicManager.main == null) { return; }
             if (Session.main.paused || Blastula.Debug.GameFlow.frozen) { return; }
-            (ulong currMeasure, float currBeat) = SyncedMusicManager.mainSynced.GetBeatAndMeasure();
+            (ulong currMeasure, float currBeat) = SyncedMusicManager.mainSynced.GetBeatAndMeasure(forceQuarterNoteBeat);
             if (currMeasure != lastMeasure)
             {
                 EmitSignal(SignalName.OnMeasure, currMeasure);
@@ -68,7 +73,7 @@ namespace HellSyncer
                 {
                     CommonSFXManager.PlayByName(debugMeasureSound, 1, 1, default, true);
                 }
-                targetBeat = intervalQuarterNotes;
+                targetBeat = intervalBeatCount;
             }
             else if (currBeat >= targetBeat)
             {
@@ -78,7 +83,7 @@ namespace HellSyncer
                 {
                     CommonSFXManager.PlayByName(debugBeatSound, 1, 1, default, true);
                 }
-                targetBeat += intervalQuarterNotes;
+                targetBeat += intervalBeatCount;
             }
             (lastMeasure, lastBeat) = (currMeasure, currBeat);
         }
