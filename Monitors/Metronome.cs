@@ -63,7 +63,8 @@ namespace HellSyncer
         {
             if (SyncedMusicManager.main == null) { return; }
             if (Session.main.paused || Blastula.Debug.GameFlow.frozen) { return; }
-            (ulong currMeasure, float currBeat) = SyncedMusicManager.mainSynced.GetBeatAndMeasure(forceQuarterNoteBeat);
+            if (SyncedMusicManager.momentaryStreamHead == null) { return; }
+            (ulong currMeasure, float currBeat) = SyncedMusicManager.momentaryStreamHead.GetBeatAndMeasure(forceQuarterNoteBeat);
             if (currMeasure != lastMeasure)
             {
                 EmitSignal(SignalName.OnMeasure, currMeasure);

@@ -30,13 +30,14 @@ namespace HellSyncer.Midi
 
         /// <summary>
         /// Duration in seconds at current tempo.
+        /// Requires a stream head, because it should be called from the context of one.
         /// </summary>
-        public float GetDuration()
+        public float GetDuration(MidiStreamHead streamHead)
         {
             if (SyncedMusicManager.mainSynced == null) { return 0f; }
             if (SyncedMusicManager.midi == null) { return 0f; }
             // Quarter notes per minute
-            float currentTempo = SyncedMusicManager.mainSynced.GetTempo();
+            float currentTempo = streamHead?.GetTempo() ?? 120;
             float secondsInQuarterNote = 60f / currentTempo;
             float quarterDurationsInNote = durationInTicks / (float)SyncedMusicManager.midi.ticksPerQN;
             return secondsInQuarterNote * quarterDurationsInNote;

@@ -43,16 +43,33 @@ namespace HellSyncer
             EmitSignal(SignalName.OnText, @event.text);
         }
 
+        private Callable removeFromMoment;
+        private Callable addToMoment;
+
+        private void RemoveFromMoment()
+        {
+            SyncedMusicManager.momentaryStreamHead?.RemoveTextListener(this);
+        }
+
+        private void AddToMoment()
+        {
+            SyncedMusicManager.momentaryStreamHead?.AddTextListener(this);
+        }
+
         public override void _Ready()
         {
             base._Ready();
-            SyncedMusicManager.AddTextListener(this);
+            AddToMoment();
+            removeFromMoment = new Callable(this, MethodName.RemoveFromMoment);
+            addToMoment = new Callable(this, MethodName.AddToMoment);
+            SyncedMusicManager.mainSynced.Connect(SyncedMusicManager.SignalName.MusicChangeImminent, removeFromMoment);
+            SyncedMusicManager.mainSynced.Connect(SyncedMusicManager.SignalName.MusicChangeComplete, addToMoment);
         }
 
         public override void _ExitTree()
         {
             base._ExitTree();
-            SyncedMusicManager.RemoveTextListener(this);
+            RemoveFromMoment();
         }
     }
 }

@@ -59,19 +59,36 @@ namespace HellSyncer
             //GD.Print(Name, ": note was played: ", note.note, " that is ", note.GetDuration(), " s long");
             if (!IsNoteInRange(note)) { return; }
             if (note.velocity < minimumVelocity) { return; }
-            EmitSignal(SignalName.OnNote, note.note, note.velocity, note.GetDuration());
+            EmitSignal(SignalName.OnNote, note.note, note.velocity, note.GetDuration(SyncedMusicManager.momentaryStreamHead));
+        }
+
+        private Callable removeFromMoment;
+        private Callable addToMoment;
+
+        private void RemoveFromMoment()
+        {
+            SyncedMusicManager.momentaryStreamHead?.RemoveInstrumentListener(this);
+        }
+
+        private void AddToMoment()
+        {
+            SyncedMusicManager.momentaryStreamHead?.AddInstrumentListener(this);
         }
 
         public override void _Ready()
         {
             base._Ready();
-            SyncedMusicManager.AddInstrumentListener(this);
+            AddToMoment();
+            removeFromMoment = new Callable(this, MethodName.RemoveFromMoment);
+            addToMoment = new Callable(this, MethodName.AddToMoment);
+            SyncedMusicManager.mainSynced.Connect(SyncedMusicManager.SignalName.MusicChangeImminent, removeFromMoment);
+            SyncedMusicManager.mainSynced.Connect(SyncedMusicManager.SignalName.MusicChangeComplete, addToMoment);
         }
 
         public override void _ExitTree()
         {
             base._ExitTree();
-            SyncedMusicManager.RemoveInstrumentListener(this);
+            RemoveFromMoment();
         }
     }
 }
