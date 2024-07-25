@@ -37,7 +37,8 @@ namespace HellSyncer.Mechanisms
 
         public virtual void OnNote(int midiTone, int velocity, float duration)
         {
-
+            GD.Print("I just played tone " + midiTone);
+            // Override with your own better behavior.
         }
     }
 }

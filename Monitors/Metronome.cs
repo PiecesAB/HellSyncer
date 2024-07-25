@@ -69,7 +69,7 @@ namespace HellSyncer
             {
                 EmitSignal(SignalName.OnMeasure, currMeasure);
                 EmitSignal(SignalName.OnInterval, currMeasure, 0);
-                GD.Print(currMeasure + " " + currBeat);
+                //GD.Print(currMeasure + " " + currBeat);
                 if (debugMeasureSound != null && debugMeasureSound != "")
                 {
                     CommonSFXManager.PlayByName(debugMeasureSound, 1, 1, default, true);
@@ -79,7 +79,7 @@ namespace HellSyncer
             else if (currBeat >= targetBeat)
             {
                 EmitSignal(SignalName.OnInterval, currMeasure, targetBeat);
-                GD.Print(currMeasure + " " + currBeat);
+                //GD.Print(currMeasure + " " + currBeat);
                 if (debugBeatSound != null && debugBeatSound != "")
                 {
                     CommonSFXManager.PlayByName(debugBeatSound, 1, 1, default, true);

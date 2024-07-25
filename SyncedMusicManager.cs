@@ -16,10 +16,21 @@ namespace HellSyncer
     public partial class SyncedMusicManager : Blastula.Sounds.MusicManager
     {
         /// <summary>
+        /// Look this far into the future, and no more.
+        /// Settings this higher will increase the amount of computational work to be done
+        /// on the frame the MIDI loads, and queueing notes during playback.
+        /// If the MIDI doesn't have an ample after-looping section, it may also
+        /// look too far ahead, and read no events when it otherwise should be.
+        /// </summary>
+        [Export] public float lookahead = 5f;
+        /// <summary>
         /// If the audible music gets this far from the MIDI (in seconds), then we will force the music to lag or skip.
         /// The reason this happens is because of unpredictable lag in the game,
         /// but the MIDI needs to run deterministically (for replays).
         /// It's not pretty, but it keeps the sync.
+        /// Additionally, it must be wide enough to tolerate the inaccuracy of the apparent playback time,
+        /// which depends on the latency caused by populating a small buffer for audio rendering
+        /// before it actually plays. And yes, that latency also affects SFX.
         /// </summary>
         public const float TOLERANCE = 0.03f;
         /// <summary>
@@ -29,6 +40,7 @@ namespace HellSyncer
         
         private ulong startFrame;
         private (ulong, ulong) loopRegionAsTicks = (0, 0);
+        private (ulong, ulong) envisionLoopRegionAsTicks = (0, 0);
 
         public static SyncedMusicManager mainSynced;
         public static ParsedMidi midi;
@@ -37,6 +49,12 @@ namespace HellSyncer
         /// </summary>
         public static MidiStreamHead momentaryStreamHead;
         /// <summary>
+        /// This MidiStreamHead will fire off events that occur as far as it can look in the future.
+        /// Instruments and other items can handle the predictions and use them as needed,
+        /// perhaps closer to when they ought to play.
+        /// </summary>
+        public static MidiStreamHead envisionStreamHead;
+        /// <summary>
         /// This helps to sync because it takes a tiny amount of time for a sound to load,
         /// and because the player expects that game actions happen slightly before their sound, as in animation.
         /// </summary>
@@ -44,6 +62,22 @@ namespace HellSyncer
 
         [Signal] public delegate void MusicChangeImminentEventHandler();
         [Signal] public delegate void MusicChangeCompleteEventHandler();
+
+        public static int GetLookaheadFrames()
+        {
+            return Mathf.RoundToInt(mainSynced.lookahead * Blastula.VirtualVariables.Persistent.SIMULATED_FPS);
+        }
+
+        public static float GetGoalPlaybackTime()
+        {
+            return (Blastula.FrameCounter.stageFrame - mainSynced.startFrame) / (float)Blastula.VirtualVariables.Persistent.SIMULATED_FPS;
+        }
+
+        public static ulong GetStageFrameForTick(ulong tick)
+        {
+            if (momentaryStreamHead == null) { return 0; }
+            return mainSynced.startFrame + (ulong)Mathf.RoundToInt(momentaryStreamHead.TickToTime(tick) * Blastula.VirtualVariables.Persistent.SIMULATED_FPS);
+        }
 
         public new static void PlayImmediate(string nodeName)
         {
@@ -63,20 +97,27 @@ namespace HellSyncer
                 midi.GenerateForBeat(sm.generatedBpm, sm.generatedTimeSignature);
             }
             momentaryStreamHead = new MidiStreamHead();
-
             momentaryStreamHead.Initialize();
+            envisionStreamHead = new MidiStreamHead();
+            envisionStreamHead.Initialize();
 
-            if (sm.loopRegion == Vector2.Zero) { mainSynced.loopRegionAsTicks = (0, 0); }
+            if (sm.loopRegion == Vector2.Zero) { 
+                mainSynced.loopRegionAsTicks = mainSynced.envisionLoopRegionAsTicks = (0, 0); 
+            }
             else
             {
                 mainSynced.loopRegionAsTicks =
                     (momentaryStreamHead.TimeToTick(sm.loopRegion.X), momentaryStreamHead.TimeToTick(sm.loopRegion.Y));
+                mainSynced.envisionLoopRegionAsTicks =
+                    (envisionStreamHead.TimeToTick(sm.loopRegion.X), envisionStreamHead.TimeToTick(sm.loopRegion.Y));
             }
 
             mainSynced.EmitSignal(SignalName.MusicChangeComplete);
 
             momentaryStreamHead.MidiSeek(0);
             momentaryStreamHead.ProcessMidi(0);
+            envisionStreamHead.MidiSeek(0);
+            envisionStreamHead.ProcessMidi(envisionStreamHead.TimeToTick(mainSynced.lookahead));
         }
 
         public override void _Ready()
@@ -97,17 +138,23 @@ namespace HellSyncer
             SyncedMusic sm = (SyncedMusic)currentMusic;
             Calculate:
             float playbackPos = sm.GetPlaybackPosition();
-            float goalPlaybackPos = (Blastula.FrameCounter.stageFrame - startFrame) / (float)Blastula.VirtualVariables.Persistent.SIMULATED_FPS;
-            
+            float goalPlaybackPos = GetGoalPlaybackTime();
             ulong momentaryTargetTick = momentaryStreamHead.SolveTargetTick(Mathf.Max(0, goalPlaybackPos + MOMENTARY_LOOKAHEAD));
+            float envisionPlaybackPos = goalPlaybackPos + lookahead;
+            ulong envisionTargetTick = envisionStreamHead.SolveTargetTick(Mathf.Max(0, envisionPlaybackPos + MOMENTARY_LOOKAHEAD));
             momentaryStreamHead.ProcessMidi(momentaryTargetTick);
-            ulong lastCurrentMeasure = momentaryStreamHead.GetCurrentMeasure();
+            envisionStreamHead.ProcessMidi(envisionTargetTick);
             if (sm.loopRegion == Vector2.Zero || momentaryTargetTick < loopRegionAsTicks.Item2)
             {
                 momentaryStreamHead.CalculateBeatAndMeasure();
             }
+            if (sm.loopRegion == Vector2.Zero || envisionTargetTick < envisionLoopRegionAsTicks.Item2)
+            {
+                envisionStreamHead.CalculateBeatAndMeasure();
+            }
 
-            // Attempted correction if the playback position is intolerably different
+            // Attempted correction if the playback position is intolerably different.
+            // This assumes virtually no loading.
             if (Mathf.Abs(goalPlaybackPos - playbackPos) > TOLERANCE)
             {
                 Seek(Mathf.Max(0f, 0.5f * (playbackPos + goalPlaybackPos)));
@@ -120,7 +167,9 @@ namespace HellSyncer
                 {
                     startFrame += (ulong)Math.Round((sm.loopRegion.Y - sm.loopRegion.X) * Blastula.VirtualVariables.Persistent.SIMULATED_FPS);
                     Seek(playbackPos - sm.loopRegion.Y + sm.loopRegion.X);
-                    momentaryStreamHead.MidiSeek(goalPlaybackPos - sm.loopRegion.Y + sm.loopRegion.X);
+                    float newSeekTime = goalPlaybackPos - sm.loopRegion.Y + sm.loopRegion.X;
+                    momentaryStreamHead.MidiSeek(newSeekTime);
+                    envisionStreamHead.MidiSeek(newSeekTime + lookahead);
                     goto Calculate;
                 }
             }

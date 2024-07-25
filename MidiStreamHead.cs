@@ -31,8 +31,13 @@ namespace HellSyncer
         private List<KeySignatureEvent> keySignatureMap = new List<KeySignatureEvent>();
         private List<BaseTextEvent> textMap = new List<BaseTextEvent>();
         private List<int> trackEventIndices = new List<int>();
-        public delegate void OnNote(FullNoteInfo info);
-        public delegate void OnText(BaseTextEvent text);
+        /// <summary>
+        /// mayHaveDiscrepancy == true means the actual note time should be recalculated;
+        /// saying that it started this frame is predicted not to be accurate.
+        /// This can happen if a skip occurs between reads, like at the beginning of a track that looks ahead.
+        /// </summary>
+        public delegate void OnNote(FullNoteInfo info, bool mayHaveDiscrepancy);
+        public delegate void OnText(BaseTextEvent text, bool mayHaveDiscrepancy);
         private Dictionary<int, OnNote> noteAlerts = new Dictionary<int, OnNote>();
         private OnText textAlert;
 
@@ -199,7 +204,7 @@ namespace HellSyncer
             return startTickOfTempoRegion + ticksSinceStartOfRegion;
         }
 
-        private void ProcessTrack0(ulong targetTick, bool sendTextEvents = true)
+        private void ProcessTrack0(ulong targetTick, bool sendTextEvents = true, bool mayHaveDiscrepancy = false)
         {
             // Scan through raw Track 0 events until arriving at the target tick.
             Track ctrack = SyncedMusicManager.midi.tracks[0];
@@ -244,7 +249,7 @@ namespace HellSyncer
                 }
                 if (sendTextEvents && @event is BaseTextEvent)
                 {
-                    textAlert?.Invoke((BaseTextEvent)@event);
+                    textAlert?.Invoke((BaseTextEvent)@event, mayHaveDiscrepancy);
                 }
                 trackEventIndices[0] = ++eventIndex;
             }
@@ -252,9 +257,14 @@ namespace HellSyncer
 
         public void ProcessMidi(ulong targetTick)
         {
+            // mayHaveDiscrepancy == true means the actual note time should be recalculated;
+            // saying that it started this frame is predicted not to be accurate.
+            // This can happen if a skip occurs between reads, like at the beginning of a track that looks ahead.
+            bool mayHaveDiscrepancy 
+                = TickToTime(targetTick) - TickToTime(currentMidiTick) >= 1.5f / Blastula.VirtualVariables.Persistent.SIMULATED_FPS;
             // In Track 0 we expect all meter, tempo, and text information.
             // In all other tracks we expect instruments, and use only the parsed full note data.
-            ProcessTrack0(targetTick);
+            ProcessTrack0(targetTick, true, mayHaveDiscrepancy);
             // Scan through full notes of other tracks until arriving at the target tick.
             for (int trackIndex = 1; trackIndex < SyncedMusicManager.midi.tracks.Length; ++trackIndex)
             {
@@ -267,7 +277,7 @@ namespace HellSyncer
                     if (note.tick > targetTick) { break; }
                     if (noteAlerts.ContainsKey(trackIndex))
                     {
-                        noteAlerts[trackIndex].Invoke(note);
+                        noteAlerts[trackIndex].Invoke(note, mayHaveDiscrepancy);
                     }
                     trackEventIndices[trackIndex] = ++noteIndex;
                 }

@@ -23,7 +23,7 @@ namespace HellSyncer.Mechanisms
 
         public override void _Ready()
         {
-            Connect(SignalName.OnNote, new Callable(this, MethodName.Dispatch));
+            instrument.Connect(SignalName.OnNote, new Callable(this, MethodName.Dispatch));
         }
 
         public void Dispatch(int midiTone, int velocity, float duration)

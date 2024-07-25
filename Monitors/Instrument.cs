@@ -1,8 +1,10 @@
+using Blastula;
 using Blastula.Sounds;
 using Blastula.VirtualVariables;
 using Godot;
 using HellSyncer.Midi;
 using System;
+using System.Collections.Generic;
 
 namespace HellSyncer
 {
@@ -16,6 +18,10 @@ namespace HellSyncer
     [Icon(Persistent.NODE_ICON_PATH + "/xylophone.png")]
     public partial class Instrument : Node
     {
+        /// <summary>
+        /// The lookahead (or delay when negative) for the signal of this instrument to be emitted.
+        /// </summary>
+        [Export] public float lookahead = 0f;
         /// <summary>
         /// A whitelist to choose which MIDI tracks can use notes to trigger this instrument.
         /// </summary>
@@ -54,12 +60,62 @@ namespace HellSyncer
             return false;
         }
 
-        public void SelfOnNote(FullNoteInfo note)
+        private MidiStreamHead SelectStreamHead()
         {
-            //GD.Print(Name, ": note was played: ", note.note, " that is ", note.GetDuration(), " s long");
+            if (lookahead <= 0f) return SyncedMusicManager.momentaryStreamHead;
+            else if (lookahead <= SyncedMusicManager.mainSynced.lookahead) return SyncedMusicManager.envisionStreamHead;
+            throw new ArgumentOutOfRangeException(
+                "Instrument is trying to look too far ahead " +
+                $"({lookahead} seconds, but the maximum is {SyncedMusicManager.mainSynced.lookahead}). " +
+                "If you'd like to look further ahead at a computational cost, " +
+                "increase the max lookahead in the SyncedMusicManager."
+            );
+        }
+
+        private ulong GetTargetNoteFrame(FullNoteInfo note, bool mayHaveDiscrepancy)
+        {
+            // If it may not have a discrepancy, directly determine the frame in the future.
+            // Otherwise we are forced to calculate the note's stage frame.
+            if (lookahead <= 0f)
+            {
+                ulong frameDelay = (ulong)Mathf.RoundToInt(-lookahead * Blastula.VirtualVariables.Persistent.SIMULATED_FPS);
+                if (mayHaveDiscrepancy) return SyncedMusicManager.GetStageFrameForTick(note.tick) + frameDelay;
+                else return FrameCounter.stageFrame + frameDelay;
+            }
+            else if (lookahead <= SyncedMusicManager.mainSynced.lookahead)
+            {
+                float adjustedLookahead = lookahead - SyncedMusicManager.mainSynced.lookahead;
+                ulong frameDelay = (ulong)Mathf.RoundToInt(-adjustedLookahead * Blastula.VirtualVariables.Persistent.SIMULATED_FPS);
+                if (mayHaveDiscrepancy) return SyncedMusicManager.GetStageFrameForTick(note.tick) + frameDelay;
+                else return FrameCounter.stageFrame + frameDelay;
+            }
+            else return 0;
+        }
+
+        public void SelfOnNote(FullNoteInfo note, bool mayHaveDiscrepancy)
+        {
+            if (mayHaveDiscrepancy)
+            {
+                GD.Print(Name, ": note was played with discrepancy: ", note.note, " that is ", note.GetDuration(SelectStreamHead()), " s long");
+            }
+                
             if (!IsNoteInRange(note)) { return; }
             if (note.velocity < minimumVelocity) { return; }
-            EmitSignal(SignalName.OnNote, note.note, note.velocity, note.GetDuration(SyncedMusicManager.momentaryStreamHead));
+            // Fire instantly or enqueue it to fire when the time is right.
+            if (lookahead == 0f || lookahead == SyncedMusicManager.mainSynced.lookahead)
+            {
+                EmitSignal(SignalName.OnNote, note.note, note.velocity, note.GetDuration(SelectStreamHead()));
+            }
+            else
+            {
+                ulong targetFrame = GetTargetNoteFrame(note, mayHaveDiscrepancy);
+                // If the frame has already passed, skip the note.
+                if (targetFrame >= FrameCounter.stageFrame)
+                {
+                    noteQueue.Enqueue((targetFrame, note));
+                    ProcessMode = ProcessModeEnum.Always;
+                }
+            }
         }
 
         private Callable removeFromMoment;
@@ -67,12 +123,12 @@ namespace HellSyncer
 
         private void RemoveFromMoment()
         {
-            SyncedMusicManager.momentaryStreamHead?.RemoveInstrumentListener(this);
+            SelectStreamHead()?.RemoveInstrumentListener(this);
         }
 
         private void AddToMoment()
         {
-            SyncedMusicManager.momentaryStreamHead?.AddInstrumentListener(this);
+            SelectStreamHead()?.AddInstrumentListener(this);
         }
 
         public override void _Ready()
@@ -83,12 +139,29 @@ namespace HellSyncer
             addToMoment = new Callable(this, MethodName.AddToMoment);
             SyncedMusicManager.mainSynced.Connect(SyncedMusicManager.SignalName.MusicChangeImminent, removeFromMoment);
             SyncedMusicManager.mainSynced.Connect(SyncedMusicManager.SignalName.MusicChangeComplete, addToMoment);
+            ProcessPriority = PROCESS_PRIORITY;
+            // Process only runs when there is a queue of notes to empty.
+            ProcessMode = ProcessModeEnum.Disabled;
         }
 
         public override void _ExitTree()
         {
             base._ExitTree();
             RemoveFromMoment();
+            SyncedMusicManager.mainSynced.Disconnect(SyncedMusicManager.SignalName.MusicChangeImminent, removeFromMoment);
+            SyncedMusicManager.mainSynced.Disconnect(SyncedMusicManager.SignalName.MusicChangeComplete, addToMoment);
+        }
+
+        private Queue<(ulong targetFrame, FullNoteInfo note)> noteQueue = new();
+        public override void _Process(double deltaTime)
+        {
+            if (Session.main.paused) return;
+            if (noteQueue.Count == 0) ProcessMode = ProcessModeEnum.Disabled;
+            while (noteQueue.Count > 0 && noteQueue.Peek().targetFrame <= FrameCounter.stageFrame)
+            {
+                (_, FullNoteInfo note) = noteQueue.Dequeue();
+                EmitSignal(SignalName.OnNote, note.note, note.velocity, note.GetDuration(SelectStreamHead()));
+            }
         }
     }
 }

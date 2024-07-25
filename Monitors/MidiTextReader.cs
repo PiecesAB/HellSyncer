@@ -35,7 +35,7 @@ namespace HellSyncer
             return (int)@event.displayID == (int)textEventType;
         }
 
-        public void SelfOnText(BaseTextEvent @event)
+        public void SelfOnText(BaseTextEvent @event, bool mayHaveDiscrepancy)
         {
             if (!TextTypeMatches(@event)) { return; }
             if (magicPhrase != null && magicPhrase != "" && !@event.text.Contains(magicPhrase)) { return; }
