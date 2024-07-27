@@ -14,7 +14,7 @@ namespace HellSyncer
     /// </remarks>
     [GlobalClass]
     [Icon(Persistent.NODE_ICON_PATH + "/textbook.png")]
-    public partial class MidiTextReader : Node
+    public partial class MidiTextReader : MidiStreamEventResponder
     {
         /// <summary>
         /// Filter out any text event that doesn't match this type.
@@ -25,8 +25,6 @@ namespace HellSyncer
         /// </summary>
         [Export] public string magicPhrase = "";
 
-        public const int PROCESS_PRIORITY = SyncedMusicManager.PROCESS_PRIORITY + 1;
-
         [Signal] public delegate void OnTextEventHandler(string text);
 
         private bool TextTypeMatches(BaseTextEvent @event)
@@ -35,41 +33,28 @@ namespace HellSyncer
             return (int)@event.displayID == (int)textEventType;
         }
 
-        public void SelfOnText(BaseTextEvent @event, bool mayHaveDiscrepancy)
+        public override bool FilterEvent(TrackEvent e)
         {
-            if (!TextTypeMatches(@event)) { return; }
-            if (magicPhrase != null && magicPhrase != "" && !@event.text.Contains(magicPhrase)) { return; }
-            //GD.Print($"recieved text signal of type {@event.displayID}: ", @event.text);
-            EmitSignal(SignalName.OnText, @event.text);
+            var t = (BaseTextEvent)e;
+            if (!TextTypeMatches(t)) { return false; }
+            if (magicPhrase != null && magicPhrase != "" && !t.text.Contains(magicPhrase)) { return false; }
+            return true;
         }
 
-        private Callable removeFromMoment;
-        private Callable addToMoment;
-
-        private void RemoveFromMoment()
+        public override void FireEvent(TrackEvent e)
         {
-            SyncedMusicManager.momentaryStreamHead?.RemoveTextListener(this);
+            GD.Print(Name + ": " + ((BaseTextEvent)e).text);
+            EmitSignal(SignalName.OnText, ((BaseTextEvent)e).text);
         }
 
-        private void AddToMoment()
+        public override void RemoveFromMoment()
         {
-            SyncedMusicManager.momentaryStreamHead?.AddTextListener(this);
+            SelectStreamHead()?.RemoveTextListener(this);
         }
 
-        public override void _Ready()
+        public override void AddToMoment()
         {
-            base._Ready();
-            AddToMoment();
-            removeFromMoment = new Callable(this, MethodName.RemoveFromMoment);
-            addToMoment = new Callable(this, MethodName.AddToMoment);
-            SyncedMusicManager.mainSynced.Connect(SyncedMusicManager.SignalName.MusicChangeImminent, removeFromMoment);
-            SyncedMusicManager.mainSynced.Connect(SyncedMusicManager.SignalName.MusicChangeComplete, addToMoment);
-        }
-
-        public override void _ExitTree()
-        {
-            base._ExitTree();
-            RemoveFromMoment();
+            SelectStreamHead()?.AddTextListener(this);
         }
     }
 }

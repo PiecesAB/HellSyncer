@@ -16,12 +16,8 @@ namespace HellSyncer
     /// </remarks>
     [GlobalClass]
     [Icon(Persistent.NODE_ICON_PATH + "/xylophone.png")]
-    public partial class Instrument : Node
+    public partial class Instrument : MidiStreamEventResponder
     {
-        /// <summary>
-        /// The lookahead (or delay when negative) for the signal of this instrument to be emitted.
-        /// </summary>
-        [Export] public float lookahead = 0f;
         /// <summary>
         /// A whitelist to choose which MIDI tracks can use notes to trigger this instrument.
         /// </summary>
@@ -46,8 +42,6 @@ namespace HellSyncer
         /// </summary>
         [Export] public int minimumVelocity = 0;
 
-        public const int PROCESS_PRIORITY = SyncedMusicManager.PROCESS_PRIORITY + 1;
-
         [Signal] public delegate void OnNoteEventHandler(int midiTone, int velocity, float duration);
 
         private bool IsNoteInRange(FullNoteInfo note)
@@ -60,108 +54,28 @@ namespace HellSyncer
             return false;
         }
 
-        private MidiStreamHead SelectStreamHead()
+        public override bool FilterEvent(TrackEvent e)
         {
-            if (lookahead <= 0f) return SyncedMusicManager.momentaryStreamHead;
-            else if (lookahead <= SyncedMusicManager.mainSynced.lookahead) return SyncedMusicManager.envisionStreamHead;
-            throw new ArgumentOutOfRangeException(
-                "Instrument is trying to look too far ahead " +
-                $"({lookahead} seconds, but the maximum is {SyncedMusicManager.mainSynced.lookahead}). " +
-                "If you'd like to look further ahead at a computational cost, " +
-                "increase the max lookahead in the SyncedMusicManager."
-            );
+            var note = (FullNoteInfo)e;
+            if (!IsNoteInRange(note)) { return false; }
+            if (note.velocity < minimumVelocity) { return false; }
+            return true;
         }
 
-        private ulong GetTargetNoteFrame(FullNoteInfo note, bool mayHaveDiscrepancy)
+        public override void FireEvent(TrackEvent e)
         {
-            // If it may not have a discrepancy, directly determine the frame in the future.
-            // Otherwise we are forced to calculate the note's stage frame.
-            if (lookahead <= 0f)
-            {
-                ulong frameDelay = (ulong)Mathf.RoundToInt(-lookahead * Blastula.VirtualVariables.Persistent.SIMULATED_FPS);
-                if (mayHaveDiscrepancy) return SyncedMusicManager.GetStageFrameForTick(note.tick) + frameDelay;
-                else return FrameCounter.stageFrame + frameDelay;
-            }
-            else if (lookahead <= SyncedMusicManager.mainSynced.lookahead)
-            {
-                float adjustedLookahead = lookahead - SyncedMusicManager.mainSynced.lookahead;
-                ulong frameDelay = (ulong)Mathf.RoundToInt(-adjustedLookahead * Blastula.VirtualVariables.Persistent.SIMULATED_FPS);
-                if (mayHaveDiscrepancy) return SyncedMusicManager.GetStageFrameForTick(note.tick) + frameDelay;
-                else return FrameCounter.stageFrame + frameDelay;
-            }
-            else return 0;
+            var note = (FullNoteInfo)e;
+            EmitSignal(SignalName.OnNote, note.note, note.velocity, note.GetDuration(SelectStreamHead()));
         }
 
-        public void SelfOnNote(FullNoteInfo note, bool mayHaveDiscrepancy)
-        {
-            if (mayHaveDiscrepancy)
-            {
-                GD.Print(Name, ": note was played with discrepancy: ", note.note, " that is ", note.GetDuration(SelectStreamHead()), " s long");
-            }
-                
-            if (!IsNoteInRange(note)) { return; }
-            if (note.velocity < minimumVelocity) { return; }
-            // Fire instantly or enqueue it to fire when the time is right.
-            if (lookahead == 0f || lookahead == SyncedMusicManager.mainSynced.lookahead)
-            {
-                EmitSignal(SignalName.OnNote, note.note, note.velocity, note.GetDuration(SelectStreamHead()));
-            }
-            else
-            {
-                ulong targetFrame = GetTargetNoteFrame(note, mayHaveDiscrepancy);
-                // If the frame has already passed, skip the note.
-                if (targetFrame >= FrameCounter.stageFrame)
-                {
-                    noteQueue.Enqueue((targetFrame, note));
-                    ProcessMode = ProcessModeEnum.Always;
-                }
-            }
-        }
-
-        private Callable removeFromMoment;
-        private Callable addToMoment;
-
-        private void RemoveFromMoment()
-        {
-            SelectStreamHead()?.RemoveInstrumentListener(this);
-        }
-
-        private void AddToMoment()
+        public override void AddToMoment()
         {
             SelectStreamHead()?.AddInstrumentListener(this);
         }
 
-        public override void _Ready()
+        public override void RemoveFromMoment()
         {
-            base._Ready();
-            AddToMoment();
-            removeFromMoment = new Callable(this, MethodName.RemoveFromMoment);
-            addToMoment = new Callable(this, MethodName.AddToMoment);
-            SyncedMusicManager.mainSynced.Connect(SyncedMusicManager.SignalName.MusicChangeImminent, removeFromMoment);
-            SyncedMusicManager.mainSynced.Connect(SyncedMusicManager.SignalName.MusicChangeComplete, addToMoment);
-            ProcessPriority = PROCESS_PRIORITY;
-            // Process only runs when there is a queue of notes to empty.
-            ProcessMode = ProcessModeEnum.Disabled;
-        }
-
-        public override void _ExitTree()
-        {
-            base._ExitTree();
-            RemoveFromMoment();
-            SyncedMusicManager.mainSynced.Disconnect(SyncedMusicManager.SignalName.MusicChangeImminent, removeFromMoment);
-            SyncedMusicManager.mainSynced.Disconnect(SyncedMusicManager.SignalName.MusicChangeComplete, addToMoment);
-        }
-
-        private Queue<(ulong targetFrame, FullNoteInfo note)> noteQueue = new();
-        public override void _Process(double deltaTime)
-        {
-            if (Session.main.paused) return;
-            if (noteQueue.Count == 0) ProcessMode = ProcessModeEnum.Disabled;
-            while (noteQueue.Count > 0 && noteQueue.Peek().targetFrame <= FrameCounter.stageFrame)
-            {
-                (_, FullNoteInfo note) = noteQueue.Dequeue();
-                EmitSignal(SignalName.OnNote, note.note, note.velocity, note.GetDuration(SelectStreamHead()));
-            }
+            SelectStreamHead()?.RemoveInstrumentListener(this);
         }
     }
 }

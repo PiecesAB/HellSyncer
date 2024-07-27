@@ -165,11 +165,11 @@ namespace HellSyncer
             {
                 if (!noteAlerts.ContainsKey(trackId))
                 {
-                    noteAlerts[trackId] = new OnNote(ins.SelfOnNote);
+                    noteAlerts[trackId] = new OnNote(ins.OnRecieveEvent);
                 }
                 else
                 {
-                    noteAlerts[trackId] += ins.SelfOnNote;
+                    noteAlerts[trackId] += ins.OnRecieveEvent;
                 }
             }
 
@@ -181,19 +181,19 @@ namespace HellSyncer
             {
                 if (noteAlerts.ContainsKey(trackID))
                 {
-                    noteAlerts[trackID] -= ins.SelfOnNote;
+                    noteAlerts[trackID] -= ins.OnRecieveEvent;
                 }
             }
         }
 
         public void AddTextListener(MidiTextReader con)
         {
-            textAlert += con.SelfOnText;
+            textAlert += con.OnRecieveEvent;
         }
 
         public void RemoveTextListener(MidiTextReader con)
         {
-            textAlert -= con.SelfOnText;
+            textAlert -= con.OnRecieveEvent;
         }
 
         public ulong SolveTargetTick(float goalPlaybackPos)
