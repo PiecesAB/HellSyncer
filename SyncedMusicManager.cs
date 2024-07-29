@@ -70,6 +70,7 @@ namespace HellSyncer
 
         public static float GetGoalPlaybackTime()
         {
+            if (mainSynced == null) { return float.NaN; }
             return (Blastula.FrameCounter.stageFrame - mainSynced.startFrame) / (float)Blastula.VirtualVariables.Persistent.SIMULATED_FPS;
         }
 
@@ -148,6 +149,7 @@ namespace HellSyncer
             {
                 momentaryStreamHead.CalculateBeatAndMeasure();
             }
+            // This is probably incorrect.
             if (sm.loopRegion == Vector2.Zero || envisionTargetTick < envisionLoopRegionAsTicks.Item2)
             {
                 envisionStreamHead.CalculateBeatAndMeasure();
